@@ -1,0 +1,107 @@
+const bedrock = require('bedrock-protocol');
+const { Authflow: PrismarineAuth, Titles } = require('prismarine-auth');
+const fetch = require('node-fetch');
+
+async function connectToServer() {
+    const authflow = new PrismarineAuth(undefined, "./data", { 
+        flow: "live", 
+        authTitle: Titles.MinecraftNintendoSwitch, 
+        deviceType: "Nintendo", 
+        doSisuAuth: true 
+    });
+
+    try {
+        await authflow.getXboxToken("rp://playfabapi.com/")
+            .then(({ userHash, XSTSToken }) => {
+                fetch("https://20ca2.playfabapi.com/Client/LoginWithXbox?sdk=XPlatCppSdk-3.6.190304", {
+                    method: "POST",
+                    headers: {
+                        "Cache-Control": "no-cache",
+                        "Accept": "application/json",
+                        "User-Agent": "ibhttpclient/1.0.0.0",
+                        "content-type": "application/json; charset=utf-8",
+                        "x-playfabsdk": "XPlatCppSdk-3.6.190304"
+                    },
+                    body: JSON.stringify({
+                        CreateAccount: true,
+                        TitleId: "20CA2",
+                        XboxToken: `XBL3.0 x=${userHash};${XSTSToken}`
+                    }),
+                })
+                .then(response => response.json())
+                .then(baseentity => {
+                    if (baseentity.error) {
+                        console.error(baseentity.errorMessage);
+                        return;
+                    }
+
+                    const client = bedrock.createClient({
+                        host: "50.20.249.106", // Server IP
+                        port: 19205,         // Server Port
+                        profilesFolder: "./data",
+                        skinData: { PersonaPieces: [] },
+                        conLog: console.log,
+                        skipPing: true
+                    });
+
+                    client.on("disconnect", (packet) => {
+                        console.log("Disconnected:", packet);
+                    });
+
+                    client.on('play_status', async () => {
+                        console.log(`[info] Connected to server.`);
+
+                        // Simulating activity with name spoofer
+                        setTimeout(() => {
+                            console.log(`[info] Simulating name spoofing...`);
+                            try {
+                                client.write("command_request", {
+                                    command: `tell @a ${"@e".repeat(80)}`,
+                                    origin: {
+                                        type: 5,
+                                        uuid: 'anything?',
+                                        request_id: 'whats this then',
+                                    },
+                                    internal: false,
+                                    version: 24,
+                                });
+                                console.log(`[info] Name spoofer command sent.`);
+                            } catch (error) {
+                                console.error(`[error] Name spoofing failed: ${error.message}`);
+                            }
+                        }, 2000);
+
+                        setTimeout(() => {
+                            console.log(`[info] Disconnecting...`);
+                            client.disconnect();
+                        }, 10000);
+                    });
+
+                    client.on("player_list", (packet) => {
+                        if (packet.records.type === 'add') {
+                            for (let record of packet.records.records) {
+                                console.log(`${record.username} joined`);
+                            }
+                        } else if (packet.records.type === 'remove') {
+                            console.log(`${packet.records.records[0].username} left`);
+                        }
+                    });
+
+                    client.on('start_game', () => {
+                        console.log(`${client.username} joined the game`);
+                    });
+                })
+                .catch(error => console.error(`[error] ${error.message}`));
+            })
+            .catch(error => console.error(`[error] ${error.message}`));
+    } catch (error) {
+        if (error.message.includes("No valid subscription")) {
+            console.log("[error] No valid subscription");
+        } else {
+            console.error("[error]", error.message);
+        }
+    }
+}
+
+// Connect to the server
+connectToServer();
