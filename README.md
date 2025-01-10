@@ -1,8 +1,7 @@
 # Bedrock-Server-Sent-Broken-packets
-Please use this for p2w servers
-------------------------------
-MY DISCORD SERVER
+Please Only use this for p2w servers and don't skid it
 
+MY DISCORD SERVER
 https://discord.gg/vW3dFaHH8x
 -----------------------------
 Credit 
